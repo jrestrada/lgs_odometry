@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/josue/ros2_ws/src/fm_odometry/build",
+  "command": "/usr/bin/g++ -DDEFAULT_RMW_IMPLEMENTATION=rmw_cyclonedds_cpp -DRCUTILS_ENABLE_FAULT_INJECTION -I/home/josue/ros2_ws/src/fm_odometry/include -isystem /opt/ros/galactic/include -g -Wall -Wextra -Wpedantic -std=gnu++17 -o CMakeFiles/acceleration_tracker.dir/src/acceleration_tracker.cpp.o -c /home/josue/ros2_ws/src/fm_odometry/src/acceleration_tracker.cpp",
+  "file": "/home/josue/ros2_ws/src/fm_odometry/src/acceleration_tracker.cpp"
+}
+]

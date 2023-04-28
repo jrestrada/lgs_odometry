@@ -1,56 +1,56 @@
-#include <vector>
-#include <functional>
-#include <memory>
-#include <chrono>
-#include "rclcpp/rclcpp.hpp"
-#include "sensor_msgs/msg/imu.hpp"
-using std::placeholders::_1;
-using IMUMSG = sensor_msgs::msg::Imu;
-using Time = std::chrono::high_resolution_clock;
-using Ms = std::chrono::milliseconds;
-class MinimalSubscriber : public rclcpp::Node{
-  public:
-    MinimalSubscriber(): Node("minimal_subscriber"){
-      subscription_ = this->create_subscription<IMUMSG>("Imu", 10, std::bind(&MinimalSubscriber::topic_callback, this, _1));
-    }
-  private:
-    void topic_callback(const IMUMSG & msg) {
-        if(msg.linear_acceleration.x != 0.0){
-          beginTrack(msg.linear_acceleration.x);
-        } else {
-          if (!atRest) endTrack();
-        }
-        if (atRest) t1 = Time::now();
-    }
-    void beginTrack(double a){
-      atRest = false;
-      t2 = Time::now(); 
-      Ms d = std::chrono::duration_cast<Ms>(t2-t1);
-      ds = (float)d.count()/1000;
-      accel.push_back(a);
-      veloc.push_back(veloc.back()+accel.back()*ds);     
-      veloc.push_back(posit.back()+veloc.back()*ds);      
-      RCLCPP_INFO(this->get_logger(), "Time interval: '%f'", ds);
-      t1 = t2;
-    }
-    void endTrack(){
-      RCLCPP_INFO(this->get_logger(), "Crawler moved %f ", posit.end());
-      accel.erase(accel.begin()+1,accel.end());
-      veloc.erase(veloc.begin()+1,veloc.end());
-      posit.erase(posit.begin()+1,posit.end());
-      atRest = true;
-    }
-    float ds;
-    std::vector<float> accel {0.0};
-    std::vector<float> veloc {0.0};
-    std::vector<float> posit {0.0};
-    bool atRest = true;
-    std::chrono::time_point<Time> t1, t2;
-    rclcpp::Subscription<IMUMSG>::SharedPtr subscription_;
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+#include <std_msgs/msg/float32.hpp>
+#define LOG(...) RCLCPP_INFO(rclcpp::get_logger("behavior tree"), __VA_ARGS__)
+
+class ImuPositionEstimatorNode : public rclcpp::Node
+{
+public:
+  ImuPositionEstimatorNode()
+    : Node("imu_position_estimator_node")
+  {
+    subscription_ = this->create_subscription<sensor_msgs::msg::Imu>(
+      "imu", 10, std::bind(&ImuPositionEstimatorNode::imu_callback, this, std::placeholders::_1));
+    publisher_ = this->create_publisher<std_msgs::msg::Float32>("imu_integration", 10);
+  }
+
+private:
+  void imu_callback(const sensor_msgs::msg::Imu::SharedPtr imu_msg)
+  {
+    // auto curr_timestamp_ = rclcpp::Time(imu_msg->header.stamp);
+    // uint64_t delta_t = curr_timestamp_.nanoseconds() - last_timestamp_.nanoseconds();
+
+    // LOG("curr time %i", curr_timestamp_.nanoseconds());
+    // LOG("last time %i", last_timestamp_.nanoseconds());
+    // LOG("delta %i", delta_t);
+    // double delta_t_s = delta_t / 1000000000;
+    double delta_t_s = 0.2;
+    double acceleration_x = imu_msg->linear_acceleration.x;
+    double velocity_x = (acceleration_x == 0.0) ? 0.0 : last_velocity_x_ + acceleration_x * delta_t_s;
+    last_velocity_x_ = velocity_x;
+
+    double position_x = last_position_x_ + velocity_x * delta_t_s;
+    last_position_x_ = position_x;
+
+    std_msgs::msg::Float32 position_msg;
+    position_msg.data = position_x;
+    publisher_->publish(position_msg);
+    last_timestamp_ = imu_msg->header.stamp;
+  }
+
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr subscription_;
+  rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr publisher_;
+
+  rclcpp::Time last_timestamp_;
+  double last_velocity_x_ = 0.0;
+  double last_position_x_ = 0.0;
 };
-int main(int argc, char * argv[]){
+
+int main(int argc, char** argv)
+{
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<MinimalSubscriber>());
+  auto node = std::make_shared<ImuPositionEstimatorNode>();
+  rclcpp::spin(node);
   rclcpp::shutdown();
   return 0;
 }

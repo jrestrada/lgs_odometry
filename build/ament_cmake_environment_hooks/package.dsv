@@ -1,0 +1,4 @@
+source;share/fm_odometry/local_setup.bash
+source;share/fm_odometry/local_setup.dsv
+source;share/fm_odometry/local_setup.sh
+source;share/fm_odometry/local_setup.zsh
